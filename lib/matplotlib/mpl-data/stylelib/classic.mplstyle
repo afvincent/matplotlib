@@ -32,6 +32,8 @@ patch.facecolor        : b
 patch.edgecolor        : k
 patch.antialiased      : True    # render patches in antialiased (no jaggies)
 
+hatch.linewidth        : 1.0
+
 hist.bins              : 10
 
 ### FONT
@@ -322,6 +324,9 @@ contour.corner_mask : True
 
 # errorbar props
 errorbar.capsize: 3
+
+# scatter props
+scatter.marker: o
 
 ### Boxplots
 boxplot.bootstrap: None

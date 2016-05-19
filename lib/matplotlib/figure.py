@@ -668,7 +668,7 @@ class Figure(Artist):
         self.stale = True
         return im
 
-    def set_size_inches(self, w, h=None, forward=False):
+    def set_size_inches(self, w, h=None, forward=True):
         """
         set_size_inches(w,h, forward=False)
 
@@ -1641,8 +1641,6 @@ class Figure(Artist):
         """
 
         kwargs.setdefault('dpi', rcParams['savefig.dpi'])
-        if kwargs['dpi'] == 'figure':
-            kwargs['dpi'] = self.get_dpi()
         frameon = kwargs.pop('frameon', rcParams['savefig.frameon'])
         transparent = kwargs.pop('transparent',
                                  rcParams['savefig.transparent'])

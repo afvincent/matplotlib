@@ -780,7 +780,7 @@ class Line2D(Artist):
                 drawFunc(renderer, gc, tpath, affine.frozen())
                 gc.restore()
 
-        if self._marker:
+        if self._marker and self._markersize > 0:
             gc = renderer.new_gc()
             self._set_gc_clip(gc)
             rgbaFace = self._get_rgba_face()
@@ -985,6 +985,11 @@ class Line2D(Artist):
         ACCEPTS: ['default' | 'steps' | 'steps-pre' | 'steps-mid' |
                   'steps-post']
         """
+        if drawstyle is None:
+            drawstyle = 'default'
+        if drawstyle not in self.drawStyles:
+            raise ValueError('Unrecognized drawstyle ' +
+                             ' '.join(self.drawStyleKeys))
         if self._drawstyle != drawstyle:
             self.stale = True
         self._drawstyle = drawstyle
@@ -1011,7 +1016,7 @@ class Line2D(Artist):
         ===========================   =================
         ``'-'`` or ``'solid'``        solid line
         ``'--'`` or  ``'dashed'``     dashed line
-        ``'-.'`` or  ``'dash_dot'``   dash-dotted line
+        ``'-.'`` or  ``'dashdot'``    dash-dotted line
         ``':'`` or ``'dotted'``       dotted line
         ``'None'``                    draw nothing
         ``' '``                       draw nothing

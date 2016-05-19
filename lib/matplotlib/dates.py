@@ -642,7 +642,8 @@ class AutoDateFormatter(ticker.Formatter):
     dictionary by doing::
 
 
-    >>> formatter = AutoDateFormatter()
+    >>> locator = AutoDateLocator()
+    >>> formatter = AutoDateFormatter(locator)
     >>> formatter.scaled[1/(24.*60.)] = '%M:%S' # only show min and sec
 
     A custom :class:`~matplotlib.ticker.FuncFormatter` can also be used.
@@ -830,7 +831,7 @@ class RRuleLocator(DateLocator):
             # The magic number!
             stop = _from_ordinalf(3652059.9999999)
 
-        self.rule.set(dtstart=start, until=stop, count=self.MAXTICKS + 1)
+        self.rule.set(dtstart=start, until=stop)
 
         # estimate the number of ticks very approximately so we don't
         # have to do a very expensive (and potentially near infinite)

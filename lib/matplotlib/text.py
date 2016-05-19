@@ -121,7 +121,8 @@ docstring.interpd.update(Text="""
     transform                  a matplotlib.transform transformation instance
     usetex                     [True | False | None]
     variant                    ['normal' | 'small-caps']
-    verticalalignment or va    ['center' | 'top' | 'bottom' | 'baseline']
+    verticalalignment or va    ['center' | 'top' | 'bottom' | 'baseline' |
+                                'center_baseline' ]
     visible                    [True | False]
     weight or fontweight       ['normal' | 'bold' | 'heavy' | 'light' |
                                 'ultrabold' | 'ultralight']
@@ -182,7 +183,7 @@ class Text(Artist):
 
     _cached = maxdict(50)
 
-    def __str__(self):
+    def __repr__(self):
         return "Text(%g,%g,%s)" % (self._x, self._y, repr(self._text))
 
     def __init__(self,
@@ -436,6 +437,8 @@ class Text(Artist):
                 offsety = (ymin + height)
             elif valign == 'baseline':
                 offsety = (ymin + height) - baseline
+            elif valign == 'center_baseline':
+                offsety = ymin + height - baseline / 2.0
             else:
                 offsety = ymin
         else:
@@ -455,6 +458,8 @@ class Text(Artist):
                 offsety = ymax1
             elif valign == 'baseline':
                 offsety = ymax1 - baseline
+            elif valign == 'center_baseline':
+                offsety = (ymin1 + ymax1 - baseline) / 2.0
             else:
                 offsety = ymin1
 
@@ -2158,14 +2163,7 @@ class Annotation(Text, _AnnotationBase):
                         " use 'headlength' to set the head length in points.")
                 headlength = d.pop('headlength', 12)
 
-                # Old way:
-                # ms_pix = renderer.points_to_pixels(ms)
-                # to_style = self.figure.dpi / (72 * ms_pix)
-                # NB: is there a reason to use self.figure.dpi / (72 * ms_pix)
-                # instead of renderer.points_to_pixels(1.) / ms_pix? Both
-                # should be equal to '1 / ms', shouldn't they (by the way)?
-                #
-                # New way: '* to_style' <- '/ ms' (ms is now still in pts here)
+                # NB: ms is in pts
                 stylekw = dict(head_length=headlength / ms,
                                head_width=headwidth / ms,
                                tail_width=width / ms)

@@ -676,6 +676,7 @@ class Matplotlib(SetupPackage):
                 'backends/web_backend/jquery/css/themes/base/*.min.css',
                 'backends/web_backend/jquery/css/themes/base/images/*',
                 'backends/web_backend/css/*.*',
+                'backends/web_backend/js/*.js',
                 'backends/Matplotlib.nib/*',
                 'mpl-data/stylelib/*.mplstyle',
              ]}
@@ -1088,7 +1089,7 @@ class FreeType(SetupPackage):
                     try:
                         # this will fail on LPy, oh well
                         os.makedirs(tarball_cache_dir, exist_ok=True)
-                        shutil.copy(tarball_cache_path, tarball_path)
+                        shutil.copy(tarball_path, tarball_cache_path)
                         print('Cached tarball at: {}'
                               .format(tarball_cache_path))
                     except:
@@ -1380,11 +1381,10 @@ class Cycler(SetupPackage):
                 "cycler was not found. "
                 "pip/easy_install may attempt to install it "
                 "after matplotlib.")
-
         return "using cycler version %s" % cycler.__version__
 
     def get_install_requires(self):
-        return ['cycler']
+        return ['cycler>=0.10']
 
 
 class Dateutil(SetupPackage):
@@ -2140,14 +2140,10 @@ class BackendMacOSX(OptionalBackendPackage):
 
     def get_extension(self):
         sources = [
-            'src/_macosx.m',
-            'src/py_converters.cpp',
-            'src/path_cleanup.cpp'
+            'src/_macosx.m'
             ]
 
         ext = make_extension('matplotlib.backends._macosx', sources)
-        Numpy().add_flags(ext)
-        LibAgg().add_flags(ext)
         ext.extra_link_args.extend(['-framework', 'Cocoa'])
         return ext
 

@@ -137,7 +137,7 @@ class AbstractMovieWriter(six.with_metaclass(abc.ABCMeta)):
     '''
 
     @abc.abstractmethod
-    def setup(self, fig, outfile, dpi, *args):
+    def setup(self, fig, outfile, dpi):
         '''
         Perform setup for writing the movie file.
 
@@ -163,13 +163,13 @@ class AbstractMovieWriter(six.with_metaclass(abc.ABCMeta)):
         'Finish any processing for writing the movie.'
 
     @contextlib.contextmanager
-    def saving(self, fig, outfile, dpi, *args):
+    def saving(self, fig, outfile, dpi, *args, **kwargs):
         '''
         Context manager to facilitate writing the movie file.
 
         All arguments are passed on to `setup`.
         '''
-        self.setup(fig, outfile, dpi, *args)
+        self.setup(fig, outfile, dpi, *args, **kwargs)
         yield
         self.finish()
 
@@ -246,7 +246,7 @@ class MovieWriter(AbstractMovieWriter):
         width_inches, height_inches = self.fig.get_size_inches()
         return width_inches * self.dpi, height_inches * self.dpi
 
-    def setup(self, fig, outfile, dpi, *args):
+    def setup(self, fig, outfile, dpi):
         '''
         Perform setup for writing the movie file.
 
@@ -858,8 +858,8 @@ class Animation(object):
         # Re-use the savefig DPI for ours if none is given
         if dpi is None:
             dpi = rcParams['savefig.dpi']
-            if dpi == 'figure':
-                dpi = self._fig.dpi
+        if dpi == 'figure':
+            dpi = self._fig.dpi
 
         if codec is None:
             codec = rcParams['animation.codec']
@@ -998,7 +998,8 @@ class Animation(object):
         # cache and restore.
         axes = set(a.axes for a in artists)
         for a in axes:
-            a.figure.canvas.restore_region(bg_cache[a])
+            if a in bg_cache:
+                a.figure.canvas.restore_region(bg_cache[a])
 
     def _setup_blit(self):
         # Setting up the blit requires: a cache of the background for the
@@ -1024,7 +1025,7 @@ class Animation(object):
     def _end_redraw(self, evt):
         # Now that the redraw has happened, do the post draw flushing and
         # blit handling. Then re-enable all of the original events.
-        self._post_draw(None, self._blit)
+        self._post_draw(None, False)
         self.event_source.start()
         self._fig.canvas.mpl_disconnect(self._resize_id)
         self._resize_id = self._fig.canvas.mpl_connect('resize_event',
@@ -1216,8 +1217,8 @@ class FuncAnimation(TimedAnimation):
     results of drawing from the first item in the frames sequence will be
     used. This function will be called once before the first frame.
 
-    If blit=True, *func* and *init_func* should return an iterable of
-    drawables to clear.
+    If blit=True, *func* and *init_func* must return an iterable of
+    artists to be re-drawn.
 
     *kwargs* include *repeat*, *repeat_delay*, and *interval*:
     *interval* draws a new frame every *interval* milliseconds.
@@ -1298,6 +1299,9 @@ class FuncAnimation(TimedAnimation):
         else:
             self._drawn_artists = self._init_func()
             if self._blit:
+                if self._drawn_artists is None:
+                    raise RuntimeError('The init_func must return a '
+                                       'sequence of Artist objects.')
                 for a in self._drawn_artists:
                     a.set_animated(self._blit)
         self._save_seq = []
@@ -1314,5 +1318,8 @@ class FuncAnimation(TimedAnimation):
         # func needs to return a sequence of any artists that were modified.
         self._drawn_artists = self._func(framedata, *self._args)
         if self._blit:
+            if self._drawn_artists is None:
+                    raise RuntimeError('The animation function must return a '
+                                       'sequence of Artist objects.')
             for a in self._drawn_artists:
                 a.set_animated(self._blit)

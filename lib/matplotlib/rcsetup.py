@@ -22,6 +22,8 @@ from functools import reduce
 import operator
 import os
 import warnings
+import re
+
 try:
     import collections.abc as abc
 except ImportError:
@@ -30,10 +32,11 @@ except ImportError:
 from matplotlib.fontconfig_pattern import parse_fontconfig_pattern
 from matplotlib.colors import is_color_like
 
+
 # Don't let the original cycler collide with our validating cycler
 from cycler import Cycler, cycler as ccycler
 
-#interactive_bk = ['gtk', 'gtkagg', 'gtkcairo', 'qt4agg',
+# interactive_bk = ['gtk', 'gtkagg', 'gtkcairo', 'qt4agg',
 #                  'tkagg', 'wx', 'wxagg', 'cocoaagg', 'webagg']
 # The capitalized forms are needed for ipython at present; this may
 # change for later versions.
@@ -174,6 +177,18 @@ def validate_string_or_None(s):
         return six.text_type(s)
     except ValueError:
         raise ValueError('Could not convert "%s" to string' % s)
+
+
+def validate_axisbelow(s):
+    try:
+        return validate_bool(s)
+    except ValueError:
+        if isinstance(s, six.string_types):
+            s = s.lower()
+            if s.startswith('line'):
+                return 'line'
+    raise ValueError('%s cannot be interpreted as'
+                     ' True, False, or "line"' % s)
 
 
 def validate_dpi(s):
@@ -326,6 +341,22 @@ def validate_color_or_inherit(s):
 def validate_color_or_auto(s):
     if s == 'auto':
         return s
+    return validate_color(s)
+
+
+def validate_color_for_prop_cycle(s):
+    # Special-case the N-th color cycle syntax, this obviously can not
+    # go in the color cycle.
+    if isinstance(s, bytes):
+        match = re.match(b'^C[0-9]$', s)
+        if match is not None:
+            raise ValueError('Can not put cycle reference ({cn!r}) in '
+                             'prop_cycler'.format(cn=s))
+    elif isinstance(s, six.text_type):
+        match = re.match('^C[0-9]$', s)
+        if match is not None:
+            raise ValueError('Can not put cycle reference ({cn!r}) in '
+                             'prop_cycler'.format(cn=s))
     return validate_color(s)
 
 
@@ -638,7 +669,7 @@ def validate_hatch(s):
     characters: ``\\ / | - + * . x o O``.
 
     """
-    if not isinstance(s, six.text_type):
+    if not isinstance(s, six.string_types):
         raise ValueError("Hatch pattern must be a string")
     unique_chars = set(s)
     unknown = (unique_chars -
@@ -650,7 +681,8 @@ validate_hatchlist = _listify_validator(validate_hatch)
 
 
 _prop_validators = {
-        'color': validate_colorlist,
+        'color': _listify_validator(validate_color_for_prop_cycle,
+                                    allow_stringlist=True),
         'linewidth': validate_floatlist,
         'linestyle': validate_stringlist,
         'facecolor': validate_colorlist,
@@ -726,15 +758,7 @@ def cycler(*args, **kwargs):
         if not isinstance(args[0], Cycler):
             raise TypeError("If only one positional argument given, it must "
                             " be a Cycler instance.")
-
-        c = args[0]
-        unknowns = c.keys - (set(_prop_validators.keys()) |
-                             set(_prop_aliases.keys()))
-        if unknowns:
-            # This is about as much validation I can do
-            raise TypeError("Unknown artist properties: %s" % unknowns)
-        else:
-            return Cycler(c)
+        return validate_cycler(args[0])
     elif len(args) == 2:
         pairs = [(args[0], args[1])]
     elif len(args) > 2:
@@ -768,17 +792,16 @@ def validate_cycler(s):
             # might come from the internet (future plans), this
             # could be downright dangerous.
             # I locked it down by only having the 'cycler()' function
-            # available. Imports and defs should not
-            # be possible. However, it is entirely possible that
-            # a security hole could open up via attributes to the
-            # function (this is why I decided against allowing the
-            # Cycler class object just to reduce the number of
-            # degrees of freedom (but maybe it is safer to use?).
-            # One possible hole I can think of (in theory) is if
-            # someone managed to hack the cycler module. But, if
-            # someone does that, this wouldn't make anything
-            # worse because we have to import the module anyway.
-            s = eval(s, {'cycler': cycler})
+            # available.
+            # UPDATE: Partly plugging a security hole.
+            # I really should have read this:
+            # http://nedbatchelder.com/blog/201206/eval_really_is_dangerous.html
+            # We should replace this eval with a combo of PyParsing and
+            # ast.literal_eval()
+            if '.__' in s.replace(' ', ''):
+                raise ValueError("'%s' seems to have dunder methods. Raising"
+                                 " an exception for your safety")
+            s = eval(s, {'cycler': cycler, '__builtins__': {}})
         except BaseException as e:
             raise ValueError("'%s' is not a valid cycler construction: %s" %
                              (s, e))
@@ -788,6 +811,36 @@ def validate_cycler(s):
         cycler_inst = s
     else:
         raise ValueError("object was not a string or Cycler instance: %s" % s)
+
+    unknowns = cycler_inst.keys - (set(_prop_validators) | set(_prop_aliases))
+    if unknowns:
+        raise ValueError("Unknown artist properties: %s" % unknowns)
+
+    # Not a full validation, but it'll at least normalize property names
+    # A fuller validation would require v0.10 of cycler.
+    checker = set()
+    for prop in cycler_inst.keys:
+        norm_prop = _prop_aliases.get(prop, prop)
+        if norm_prop != prop and norm_prop in cycler_inst.keys:
+            raise ValueError("Cannot specify both '{0}' and alias '{1}'"
+                             " in the same prop_cycle".format(norm_prop, prop))
+        if norm_prop in checker:
+            raise ValueError("Another property was already aliased to '{0}'."
+                             " Collision normalizing '{1}'.".format(norm_prop,
+                                                                    prop))
+        checker.update([norm_prop])
+
+    # This is just an extra-careful check, just in case there is some
+    # edge-case I haven't thought of.
+    assert len(checker) == len(cycler_inst.keys)
+
+    # Now, it should be safe to mutate this cycler
+    for prop in cycler_inst.keys:
+        norm_prop = _prop_aliases.get(prop, prop)
+        cycler_inst.change_key(prop, norm_prop)
+
+    for key, vals in cycler_inst.by_key().items():
+        _prop_validators[key](vals)
 
     return cycler_inst
 
@@ -846,9 +899,9 @@ defaultParams = {
     'verbose.fileo': ['sys.stdout', six.text_type],
 
     # line props
-    'lines.linewidth':       [2.5, validate_float],  # line width in points
+    'lines.linewidth':       [1.5, validate_float],  # line width in points
     'lines.linestyle':       ['-', six.text_type],             # solid line
-    'lines.color':           ['b', validate_color],  # blue
+    'lines.color':           ['C0', validate_color],  # first color in color cycle
     'lines.marker':          ['None', six.text_type],     # black
     'lines.markeredgewidth': [1.0, validate_float],
     'lines.markersize':      [6, validate_float],    # markersize, in points
@@ -867,8 +920,11 @@ defaultParams = {
     ## patch props
     'patch.linewidth':   [None, validate_float_or_None],  # line width in points
     'patch.edgecolor':   ['k', validate_color],  # black
-    'patch.facecolor':   ['#1f77b4', validate_color],  # blue (first color in color cycle)
+    'patch.facecolor':   ['C0', validate_color],  # first color in color cycle
     'patch.antialiased': [True, validate_bool],  # antialiased (no jaggies)
+
+    ## hatch props
+    'hatch.linewidth': [1.0, validate_float],
 
     ## Histogram properties
     'hist.bins': [10, validate_hist_bins],
@@ -885,7 +941,7 @@ defaultParams = {
     'boxplot.showfliers': [True, validate_bool],
     'boxplot.meanline': [False, validate_bool],
 
-    'boxplot.flierprops.color': ['b', validate_color],
+    'boxplot.flierprops.color': ['C0', validate_color],
     'boxplot.flierprops.marker': ['+', six.text_type],
     'boxplot.flierprops.markerfacecolor': ['auto', validate_color_or_auto],
     'boxplot.flierprops.markeredgecolor': ['k', validate_color],
@@ -893,11 +949,11 @@ defaultParams = {
     'boxplot.flierprops.linestyle': ['none', six.text_type],
     'boxplot.flierprops.linewidth': [1.0, validate_float],
 
-    'boxplot.boxprops.color': ['b', validate_color],
+    'boxplot.boxprops.color': ['C0', validate_color],
     'boxplot.boxprops.linewidth': [1.0, validate_float],
     'boxplot.boxprops.linestyle': ['-', six.text_type],
 
-    'boxplot.whiskerprops.color': ['b', validate_color],
+    'boxplot.whiskerprops.color': ['C0', validate_color],
     'boxplot.whiskerprops.linewidth': [1.0, validate_float],
     'boxplot.whiskerprops.linestyle': ['--', six.text_type],
 
@@ -905,7 +961,7 @@ defaultParams = {
     'boxplot.capprops.linewidth': [1.0, validate_float],
     'boxplot.capprops.linestyle': ['-', six.text_type],
 
-    'boxplot.medianprops.color': ['r', validate_color],
+    'boxplot.medianprops.color': ['C1', validate_color],
     'boxplot.medianprops.linewidth': [1.0, validate_float],
     'boxplot.medianprops.linestyle': ['-', six.text_type],
 
@@ -981,7 +1037,7 @@ defaultParams = {
     'errorbar.capsize':      [0, validate_float],
 
     # axes props
-    'axes.axisbelow':        [False, validate_bool],
+    'axes.axisbelow':        ['line', validate_axisbelow],
     'axes.hold':             [True, validate_bool],
     'axes.facecolor':        ['w', validate_color],  # background color; white
     'axes.edgecolor':        ['k', validate_color],  # edge color; black
@@ -1016,7 +1072,10 @@ defaultParams = {
     'axes.formatter.use_mathtext': [False, validate_bool],
     'axes.formatter.useoffset': [True, validate_bool],
     'axes.unicode_minus': [True, validate_bool],
-    'axes.color_cycle': [['b', 'g', 'r', 'c', 'm', 'y', 'k'],
+    'axes.color_cycle': [
+        ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
+         '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
+         '#bcbd22', '#17becf'],
                          deprecate_axes_colorcycle],  # cycle of plot
                                                       # line colors
     # This entry can be either a cycler object or a
@@ -1043,6 +1102,10 @@ defaultParams = {
     'polaraxes.grid': [True, validate_bool],  # display polar grid or
                                                      # not
     'axes3d.grid': [True, validate_bool],  # display 3d grid
+
+    # scatter props
+    'scatter.marker': ['o', six.text_type],
+
     # TODO validate that these are valid datetime format strings
     'date.autoformatter.year': ['%Y', six.text_type],
     'date.autoformatter.month': ['%Y-%m', six.text_type],
@@ -1065,12 +1128,10 @@ defaultParams = {
     # the number of points in the legend line for scatter
     'legend.scatterpoints': [3, validate_int],
     'legend.fontsize': ['large', validate_fontsize],
-     # the relative size of legend markers vs. original
-    'legend.markerscale': [1.0, validate_float],
-    'legend.shadow': [False, validate_bool],
-     # whether or not to draw a frame around legend
+
+    # whether or not to draw a frame around legend
     'legend.frameon': [True, validate_bool],
-     # alpha value of the legend frame
+    # alpha value of the legend frame
     'legend.framealpha': [None, validate_float_or_None],
 
     ## the following dimensions are in fraction of the font size
@@ -1136,7 +1197,7 @@ defaultParams = {
     'figure.titleweight': ['normal', six.text_type],
 
     # figure size in inches: width by height
-    'figure.figsize':    [[8.0, 6.0], validate_nseq_float(2)],
+    'figure.figsize':    [[6.4, 4.8], validate_nseq_float(2)],
     'figure.dpi':        [100, validate_float],  # DPI
     'figure.facecolor':  ['w', validate_color],  # facecolor; white
     'figure.edgecolor':  ['w', validate_color],  # edgecolor; white

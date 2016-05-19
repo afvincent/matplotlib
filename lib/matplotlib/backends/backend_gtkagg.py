@@ -51,8 +51,9 @@ def new_figure_manager_given_figure(num, figure):
     Create a new figure manager instance for the given figure.
     """
     canvas = FigureCanvasGTKAgg(figure)
-    return FigureManagerGTKAgg(canvas, num)
+    figuremanager = FigureManagerGTKAgg(canvas, num)
     if DEBUG: print('backend_gtkagg.new_figure_manager done')
+    return figuremanager
 
 
 class FigureCanvasGTKAgg(FigureCanvasGTK, FigureCanvasAgg):
@@ -75,7 +76,7 @@ class FigureCanvasGTKAgg(FigureCanvasGTK, FigureCanvasAgg):
         dpival = self.figure.dpi
         winch = w/dpival
         hinch = h/dpival
-        self.figure.set_size_inches(winch, hinch)
+        self.figure.set_size_inches(winch, hinch, forward=False)
         self._need_redraw = True
         self.resize_event()
         if DEBUG: print('FigureCanvasGTKAgg.configure_event end')

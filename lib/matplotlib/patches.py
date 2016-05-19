@@ -184,7 +184,6 @@ class Patch(artist.Artist):
         self.set_linewidth(other.get_linewidth())
         self.set_linestyle(other.get_linestyle())
         self.set_transform(other.get_data_transform())
-        self.set_figure(other.get_figure())
         self.set_alpha(other.get_alpha())
 
     def get_extents(self):
@@ -370,7 +369,7 @@ class Patch(artist.Artist):
         ===========================   =================
         ``'-'`` or ``'solid'``        solid line
         ``'--'`` or  ``'dashed'``     dashed line
-        ``'-.'`` or  ``'dash_dot'``   dash-dotted line
+        ``'-.'`` or  ``'dashdot'``    dash-dotted line
         ``':'`` or ``'dotted'``       dotted line
         ===========================   =================
 
@@ -1879,7 +1878,7 @@ class _Style(object):
 class BoxStyle(_Style):
     """
     :class:`BoxStyle` is a container class which defines several
-    boxstyle classes, which are used for :class:`FancyBoxPatch`.
+    boxstyle classes, which are used for :class:`FancyBboxPatch`.
 
     A style object can be created as::
 
@@ -4057,7 +4056,7 @@ class FancyArrowPatch(Patch):
     def set_dpi_cor(self, dpi_cor):
         """
         dpi_cor is currently used for linewidth-related things and
-        shrink factor. Mutation scale *is now* affected by this.
+        shrink factor. Mutation scale is affected by this.
         """
 
         self._dpi_cor = dpi_cor
@@ -4066,7 +4065,7 @@ class FancyArrowPatch(Patch):
     def get_dpi_cor(self):
         """
         dpi_cor is currently used for linewidth-related things and
-        shrink factor. Mutation scale *is now* affected by this.
+        shrink factor. Mutation scale is affected by this.
         """
 
         return self._dpi_cor
@@ -4218,11 +4217,12 @@ class FancyArrowPatch(Patch):
                                                patchB=self.patchB,
                                                shrinkA=self.shrinkA * dpi_cor,
                                                shrinkB=self.shrinkB * dpi_cor
-                                              )
+                                               )
         else:
             _path = self.get_transform().transform_path(self._path_original)
 
-        _path, fillable = self.get_arrowstyle()(_path,
+        _path, fillable = self.get_arrowstyle()(
+                                        _path,
                                         self.get_mutation_scale() * dpi_cor,
                                         self.get_linewidth() * dpi_cor,
                                         self.get_mutation_aspect()
@@ -4536,13 +4536,14 @@ class ConnectionPatch(FancyArrowPatch):
                                            patchB=self.patchB,
                                            shrinkA=self.shrinkA * dpi_cor,
                                            shrinkB=self.shrinkB * dpi_cor
-                                          )
+                                           )
 
-        _path, fillable = self.get_arrowstyle()(_path,
+        _path, fillable = self.get_arrowstyle()(
+                                        _path,
                                         self.get_mutation_scale() * dpi_cor,
                                         self.get_linewidth() * dpi_cor,
                                         self.get_mutation_aspect()
-                                       )
+                                        )
 
         return _path, fillable
 

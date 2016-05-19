@@ -137,6 +137,21 @@ del get_versions
 
 __version__numpy__ = str('1.6')  # minimum required numpy version
 
+__bibtex__ = """@Article{Hunter:2007,
+  Author    = {Hunter, J. D.},
+  Title     = {Matplotlib: A 2D graphics environment},
+  Journal   = {Computing In Science \& Engineering},
+  Volume    = {9},
+  Number    = {3},
+  Pages     = {90--95},
+  abstract  = {Matplotlib is a 2D graphics package used for Python
+  for application development, interactive scripting, and
+  publication-quality image generation across user
+  interfaces and operating systems.},
+  publisher = {IEEE COMPUTER SOC},
+  year      = 2007
+}"""
+
 try:
     import dateutil
 except ImportError:
@@ -554,16 +569,14 @@ def _create_tmp_config_dir():
         # Some restricted platforms (such as Google App Engine) do not provide
         # gettempdir.
         return None
-
     try:
         username = getpass.getuser()
     except KeyError:
         username = str(os.getuid())
-    tempdir = os.path.join(tempdir, 'matplotlib-%s' % username)
+
+    tempdir = tempfile.mkdtemp(prefix='matplotlib-%s-' % username, dir=tempdir)
 
     os.environ['MPLCONFIGDIR'] = tempdir
-
-    mkdirs(tempdir)
 
     return tempdir
 
@@ -1285,7 +1298,15 @@ class rc_context(object):
             plt.plot(x, a)
 
     The 'rc' dictionary takes precedence over the settings loaded from
-    'fname'.  Passing a dictionary only is also valid.
+    'fname'.  Passing a dictionary only is also valid. For example a
+    common usage is::
+
+        with mpl.rc_context(rc={'interactive': False}):
+            fig, ax = plt.subplots()
+            ax.plot(range(3), range(3))
+            fig.savefig('A.png', format='png')
+            plt.close(fig)
+
     """
 
     def __init__(self, rc=None, fname=None):
@@ -1432,6 +1453,17 @@ else:
         use(os.environ['MPLBACKEND'])
     except (KeyError, ValueError):
         pass
+
+
+# Jupyter extension paths
+def _jupyter_nbextension_paths():
+    return [{
+        'section': 'notebook',
+        'src': 'backends/web_backend/js',
+        'dest': 'matplotlib',
+        'require': 'matplotlib/extension'
+    }]
+
 
 default_test_modules = [
     'matplotlib.tests.test_agg',

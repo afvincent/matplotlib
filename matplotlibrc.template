@@ -78,9 +78,9 @@ backend      : $TEMPLATE_BACKEND
 ### LINES
 # See http://matplotlib.org/api/artist_api.html#module-matplotlib.lines for more
 # information on line properties.
-#lines.linewidth   : 2.0     # line width in points
+#lines.linewidth   : 1.5     # line width in points
 #lines.linestyle   : -       # solid line
-#lines.color       : blue    # has no affect on plot(); see axes.prop_cycle
+#lines.color       : C0      # has no affect on plot(); see axes.prop_cycle
 #lines.marker      : None    # the default marker
 #lines.markeredgewidth  : 1.0     # the line width around the marker symbol
 #lines.markersize  : 6            # markersize, in points
@@ -105,9 +105,12 @@ backend      : $TEMPLATE_BACKEND
 #patch.linewidth        : None     # edge width in points.
                                    # If None, use axes.linewidth when patch
                                    # is not filled.
-#patch.facecolor        : 1f77b4
+#patch.facecolor        : C0
 #patch.edgecolor        : black
 #patch.antialiased      : True    # render patches in antialiased (no jaggies)
+
+### HATCHES
+#hatch.linewidth : 1.0
 
 ### Boxplot
 #boxplot.notch       : False
@@ -141,14 +144,14 @@ backend      : $TEMPLATE_BACKEND
 #boxplot.capprops.linewidth : 1.0
 #boxplot.capprops.linestyle : '-'
 
-#boxplot.medianprops.color     : 'b'
+#boxplot.medianprops.color     : 'C0'
 #boxplot.medianprops.linewidth : 1.0
 #boxplot.medianprops.linestyle : '-'
 
-#boxplot.meanprops.color           : 'b'
+#boxplot.meanprops.color           : 'C1'
 #boxplot.meanprops.marker          : '^'
-#boxplot.meanprops.markerfacecolor : 'b'
-#boxplot.meanprops.markeredgecolor : 'b'
+#boxplot.meanprops.markerfacecolor : 'C1'
+#boxplot.meanprops.markeredgecolor : 'C1'
 #boxplot.meanprops.markersize      :  6
 #boxplot.meanprops.linestyle       : 'none'
 #boxplot.meanprops.linewidth       : 1.0
@@ -298,8 +301,9 @@ backend      : $TEMPLATE_BACKEND
 #axes.labelpad       : 5.0     # space between label and axis
 #axes.labelweight    : normal  # weight of the x and y labels
 #axes.labelcolor     : black
-#axes.axisbelow      : False   # whether axis gridlines and ticks are below
-                               # the axes elements (lines, text, etc)
+#axes.axisbelow      : 'line'  # draw axis gridlines and ticks below
+                               # patches (True); above patches but below
+                               # lines ('line'); or above all (False)
 
 #axes.formatter.limits : -7, 7 # use scientific notation if log10
                                # of the axis range is smaller than the
@@ -415,7 +419,7 @@ backend      : $TEMPLATE_BACKEND
 # See http://matplotlib.org/api/figure_api.html#matplotlib.figure.Figure
 #figure.titlesize : medium     # size of the figure title
 #figure.titleweight : normal   # weight of the figure title
-#figure.figsize   : 8, 6    # figure size in inches
+#figure.figsize   : 6.4, 4.8   # figure size in inches
 #figure.dpi       : 100      # figure dots per inch
 #figure.facecolor : white   # figure facecolor; 0.75 is scalar gray
 #figure.edgecolor : white   # figure edgecolor
@@ -457,6 +461,9 @@ backend      : $TEMPLATE_BACKEND
 #hist.bins : 10                   # The default number of histogram bins.
                                   # If Numpy 1.11 or later is
                                   # installed, may also be `auto`
+
+### SCATTER PLOTS
+#scatter.marker : o               # The default marker type for scatter plots.
 
 ### Agg rendering
 ### Warning: experimental, 2008/10/10

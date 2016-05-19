@@ -792,6 +792,7 @@ class GraphicsContextBase(object):
         self._linewidth = 1
         self._rgb = (0.0, 0.0, 0.0, 1.0)
         self._hatch = None
+        self._hatch_linewidth = rcParams['hatch.linewidth']
         self._url = None
         self._gid = None
         self._snap = None
@@ -1110,6 +1111,12 @@ class GraphicsContextBase(object):
         if self._hatch is None:
             return None
         return Path.hatch(self._hatch, density)
+
+    def get_hatch_linewidth(self):
+        """
+        Gets the linewidth to use for hatching.
+        """
+        return self._hatch_linewidth
 
     def get_sketch_params(self):
         """
@@ -2078,7 +2085,7 @@ class FigureCanvasBase(object):
                          'Supported formats: '
                          '%s.' % (format, ', '.join(formats)))
 
-    def print_figure(self, filename, dpi=None, facecolor='w', edgecolor='w',
+    def print_figure(self, filename, dpi=None, facecolor=None, edgecolor=None,
                      orientation='portrait', format=None, **kwargs):
         """
         Render the figure to hardcopy. Set the figure patch face and edge
@@ -2098,10 +2105,10 @@ class FigureCanvasBase(object):
             the dots per inch to save the figure in; if None, use savefig.dpi
 
         *facecolor*
-            the facecolor of the figure
+            the facecolor of the figure; if None, defaults to savefig.facecolor
 
         *edgecolor*
-            the edgecolor of the figure
+            the edgecolor of the figure; if None, defaults to savefig.edgecolor
 
         *orientation*
             landscape' | 'portrait' (not supported on all backends)
@@ -2141,14 +2148,21 @@ class FigureCanvasBase(object):
 
         if dpi is None:
             dpi = rcParams['savefig.dpi']
-            if dpi == 'figure':
-                dpi = self.figure.dpi
+
+        if dpi == 'figure':
+            dpi = self.figure.dpi
+
+        if facecolor is None:
+            facecolor = rcParams['savefig.facecolor']
+        if edgecolor is None:
+            edgecolor = rcParams['savefig.edgecolor']
 
         origDPI = self.figure.dpi
         origfacecolor = self.figure.get_facecolor()
         origedgecolor = self.figure.get_edgecolor()
 
-        self.figure.dpi = dpi
+        if dpi != 'figure':
+            self.figure.dpi = dpi
         self.figure.set_facecolor(facecolor)
         self.figure.set_edgecolor(edgecolor)
 

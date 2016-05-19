@@ -118,7 +118,7 @@ default_role = 'obj'
 plot_formats = [('svg', 72), ('png', 80)]
 
 # Subdirectories in 'examples/' directory of package and titles for gallery
-mpl_example_sections = (
+mpl_example_sections = [
     ('lines_bars_and_markers', 'Lines, bars, and markers'),
     ('shapes_and_collections', 'Shapes and collections'),
     ('statistics', 'Statistical plots'),
@@ -139,7 +139,7 @@ mpl_example_sections = (
     ('axisartist', 'axisartist toolkit'),
     ('units', 'units'),
     ('widgets', 'widgets'),
-    )
+    ]
 
 
 # Github extension
@@ -214,6 +214,8 @@ html_use_opensearch = 'False'
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'Matplotlibdoc'
 
+# Path to favicon
+html_favicon = '_static/favicon.ico'
 
 # Options for LaTeX output
 # ------------------------

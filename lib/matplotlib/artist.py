@@ -15,7 +15,8 @@ from matplotlib import docstring, rcParams
 from .transforms import (Bbox, IdentityTransform, TransformedBbox,
                          TransformedPatchPath, TransformedPath, Transform)
 from .path import Path
-
+from functools import wraps
+from contextlib import contextmanager
 # Note, matplotlib artists use the doc strings for set and get
 # methods to enable the introspection methods of setp and getp.  Every
 # set_* method should have a docstring containing the line
@@ -42,31 +43,30 @@ def allow_rasterization(draw):
     other setup function calls, such as starting and flushing a mixed-mode
     renderer.
     """
-    def before(artist, renderer):
+    @contextmanager
+    def with_rasterized(artist, renderer):
+
         if artist.get_rasterized():
             renderer.start_rasterizing()
 
         if artist.get_agg_filter() is not None:
             renderer.start_filter()
 
-    def after(artist, renderer):
+        try:
+            yield
+        finally:
+            if artist.get_agg_filter() is not None:
+                renderer.stop_filter(artist.get_agg_filter())
 
-        if artist.get_agg_filter() is not None:
-            renderer.stop_filter(artist.get_agg_filter())
-
-        if artist.get_rasterized():
-            renderer.stop_rasterizing()
+            if artist.get_rasterized():
+                renderer.stop_rasterizing()
 
     # the axes class has a second argument inframe for its draw method.
+    @wraps(draw)
     def draw_wrapper(artist, renderer, *args, **kwargs):
-        before(artist, renderer)
-        draw(artist, renderer, *args, **kwargs)
-        after(artist, renderer)
+        with with_rasterized(artist, renderer):
+            return draw(artist, renderer, *args, **kwargs)
 
-    # "safe wrapping" to exactly replicate anything we haven't overridden above
-    draw_wrapper.__name__ = draw.__name__
-    draw_wrapper.__dict__ = draw.__dict__
-    draw_wrapper.__doc__ = draw.__doc__
     draw_wrapper._supports_rasterization = True
     return draw_wrapper
 
@@ -1138,16 +1138,19 @@ class ArtistInspector(object):
     def __init__(self, o):
         """
         Initialize the artist inspector with an
-        :class:`~matplotlib.artist.Artist` or sequence of :class:`Artists`.
-        If a sequence is used, we assume it is a homogeneous sequence (all
+        :class:`~matplotlib.artist.Artist` or iterable of :class:`Artists`.
+        If an iterable is used, we assume it is a homogeneous sequence (all
         :class:`Artists` are of the same type) and it is your responsibility
         to make sure this is so.
         """
-        if cbook.iterable(o) and len(o):
-            o = o[0]
+        if cbook.iterable(o):
+            # Wrapped in list instead of doing try-except around next(iter(o))
+            o = list(o)
+            if len(o):
+                o = o[0]
 
         self.oorig = o
-        if not isinstance(o, type):
+        if not inspect.isclass(o):
             o = type(o)
         self.o = o
 
@@ -1363,14 +1366,6 @@ class ArtistInspector(object):
         lines.append(table_formatstr)
         lines.append('')
         return lines
-        ########
-
-        for prop, path in attrs:
-            accepts = self.get_valid_values(prop)
-            name = self.aliased_name_rest(prop, path)
-
-            lines.append('%s%s: %s' % (pad, name, accepts))
-        return lines
 
     def properties(self):
         """
@@ -1514,8 +1509,8 @@ def setp(obj, *args, **kwargs):
       >>> line, = plot([1,2,3])
       >>> setp(line, linestyle='--')
 
-    If you want to know the valid types of arguments, you can provide the
-    name of the property you want to set without a value::
+    If you want to know the valid types of arguments, you can provide
+    the name of the property you want to set without a value::
 
       >>> setp(line, 'linestyle')
           linestyle: [ '-' | '--' | '-.' | ':' | 'steps' | 'None' ]
@@ -1526,12 +1521,18 @@ def setp(obj, *args, **kwargs):
       >>> setp(line)
           ... long output listing omitted
 
-    :func:`setp` operates on a single instance or a list of instances.
-    If you are in query mode introspecting the possible values, only
-    the first instance in the sequence is used.  When actually setting
-    values, all the instances will be set.  e.g., suppose you have a
-    list of two lines, the following will make both lines thicker and
-    red::
+    You may specify another output file to `setp` if `sys.stdout` is not
+    acceptable for some reason using the `file` keyword-only argument::
+
+      >>> with fopen('output.log') as f:
+      >>>     setp(line, file=f)
+
+    :func:`setp` operates on a single instance or a iterable of
+    instances. If you are in query mode introspecting the possible
+    values, only the first instance in the sequence is used. When
+    actually setting values, all the instances will be set.  e.g.,
+    suppose you have a list of two lines, the following will make both
+    lines thicker and red::
 
       >>> x = arange(0,1.0,0.01)
       >>> y1 = sin(2*pi*x)
@@ -1546,20 +1547,24 @@ def setp(obj, *args, **kwargs):
       >>> setp(lines, linewidth=2, color='r')        # python style
     """
 
-    insp = ArtistInspector(obj)
-
-    if len(kwargs) == 0 and len(args) == 0:
-        print('\n'.join(insp.pprint_setters()))
-        return
-
-    if len(kwargs) == 0 and len(args) == 1:
-        print(insp.pprint_setters(prop=args[0]))
-        return
-
     if not cbook.iterable(obj):
         objs = [obj]
     else:
         objs = list(cbook.flatten(obj))
+
+    insp = ArtistInspector(objs[0])
+
+    # file has to be popped before checking if kwargs is empty
+    printArgs = {}
+    if 'file' in kwargs:
+        printArgs['file'] = kwargs.pop('file')
+
+    if not kwargs and len(args) < 2:
+        if args:
+            print(insp.pprint_setters(prop=args[0]), **printArgs)
+        else:
+            print('\n'.join(insp.pprint_setters()), **printArgs)
+        return
 
     if len(args) % 2:
         raise ValueError('The set args must be string, value pairs')

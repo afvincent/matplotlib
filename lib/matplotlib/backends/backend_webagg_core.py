@@ -18,7 +18,7 @@ from matplotlib.externals import six
 import io
 import json
 import os
-import time
+import datetime
 import warnings
 
 import numpy as np
@@ -350,7 +350,7 @@ class FigureCanvasWebAggCore(backend_agg.FigureCanvasAgg):
         x, y = int(x) * self._dpi_ratio, int(y) * self._dpi_ratio
         fig = self.figure
         # An attempt at approximating the figure size in pixels.
-        fig.set_size_inches(x / fig.dpi, y / fig.dpi)
+        fig.set_size_inches(x / fig.dpi, y / fig.dpi, forward=False)
 
         _, _, w, h = self.figure.bbox.bounds
         # Acknowledge the resize, and force the viewer to update the
@@ -501,6 +501,7 @@ class FigureManagerWebAgg(backend_bases.FigureManagerBase):
         with io.open(os.path.join(
                 os.path.dirname(__file__),
                 "web_backend",
+                "js",
                 "mpl.js"), encoding='utf8') as fd:
             output.write(fd.read())
 

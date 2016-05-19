@@ -300,14 +300,14 @@ class FigureCanvasGTK (gtk.DrawingArea, FigureCanvasBase):
         key = self._get_key(event)
         if _debug: print("hit", key)
         FigureCanvasBase.key_press_event(self, key, guiEvent=event)
-        return False  # finish event propagation?
+        return True  # stop event propagation
 
     def key_release_event(self, widget, event):
         if _debug: print('FigureCanvasGTK.%s' % fn_name())
         key = self._get_key(event)
         if _debug: print("release", key)
         FigureCanvasBase.key_release_event(self, key, guiEvent=event)
-        return False  # finish event propagation?
+        return True  # stop event propagation
 
     def motion_notify_event(self, widget, event):
         if _debug: print('FigureCanvasGTK.%s' % fn_name())
@@ -355,7 +355,7 @@ class FigureCanvasGTK (gtk.DrawingArea, FigureCanvasBase):
 
         # resize the figure (in inches)
         dpi = self.figure.dpi
-        self.figure.set_size_inches (w/dpi, h/dpi)
+        self.figure.set_size_inches(w/dpi, h/dpi, forward=False)
         self._need_redraw = True
 
         return False  # finish event propagation?

@@ -28,6 +28,25 @@ Colors
 - Grid lines are light grey solid 1pt lines.  They are no longer dashed by
   default.
 
+Plots
+`````
+
+- The default size of the elements in a scatter plot is now based on
+  the rcParam ``lines.markersize`` so it is consistent with ``plot(X,
+  Y, 'o')``.  The old value was 20, and the new value is 36 (6^2).
+
+Hatching
+````````
+
+- The width of the lines in a hatch pattern is now configurable by the
+  rcParam `hatch.linewidth`, with a default of 1 point.  The old
+  behavior was different depending on backend:
+
+    - PDF: 0.1 pt
+    - SVG: 1.0 pt
+    - PS:  1 px
+    - Agg: 1 px
+
 Plot layout
 ```````````
 
@@ -52,6 +71,11 @@ Plot layout
 
 - Ticks now point outward by default.  To have ticks pointing inward,
   use the ``rcParams`` ``xtick.direction`` and ``ytick.direction``.
+
+- Ticks and grids are now plotted above solid elements such as
+  filled contours, but below lines.  To return to the previous
+  behavior of plotting ticks and grids above lines, set
+  ``rcParams['axes.axisbelow'] = False``.
 
 - By default, caps on the ends of errorbars are not present.  Use the
   rcParam ``errorbar.capsize`` to control this.

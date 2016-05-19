@@ -36,6 +36,7 @@ from matplotlib.offsetbox import OffsetBox
 from matplotlib.artist import allow_rasterization
 
 from matplotlib.rcsetup import cycler
+from matplotlib.rcsetup import validate_axisbelow
 
 rcParams = matplotlib.rcParams
 
@@ -52,6 +53,7 @@ def _process_plot_format(fmt):
     * 'ko': black circles
     * '.b': blue dots
     * 'r--': red dashed lines
+    * 'C2--': the third color in the color cycle, dashed lines
 
     .. seealso::
 
@@ -97,7 +99,9 @@ def _process_plot_format(fmt):
 
     chars = [c for c in fmt]
 
-    for c in chars:
+    i = 0
+    while i < len(chars):
+        c = chars[i]
         if c in mlines.lineStyles:
             if linestyle is not None:
                 raise ValueError(
@@ -113,9 +117,14 @@ def _process_plot_format(fmt):
                 raise ValueError(
                     'Illegal format string "%s"; two color symbols' % fmt)
             color = c
+        elif c == 'C' and i < len(chars) - 1:
+            color_cycle_number = int(chars[i + 1])
+            color = mcolors.colorConverter._get_nth_color(color_cycle_number)
+            i += 1
         else:
             raise ValueError(
                 'Unrecognized character %c in format string' % c)
+        i += 1
 
     if linestyle is None and marker is None:
         linestyle = rcParams['lines.linestyle']
@@ -161,6 +170,10 @@ class _process_plot_var_args(object):
         else:
             prop_cycler = cycler(*args, **kwargs)
 
+        # Make sure the cycler always has at least one color
+        if 'color' not in prop_cycler.keys:
+            prop_cycler = prop_cycler * cycler('color', ['k'])
+
         self.prop_cycler = itertools.cycle(prop_cycler)
         # This should make a copy
         self._prop_keys = prop_cycler.keys
@@ -185,6 +198,12 @@ class _process_plot_var_args(object):
 
         ret = self._grab_next_args(*args, **kwargs)
         return ret
+
+    def get_next_color(self):
+        """
+        Return the next color in the cycle.
+        """
+        return six.next(self.prop_cycler)['color']
 
     def set_lineprops(self, line, **kwargs):
         assert self.command == 'plot', 'set_lineprops only works with "plot"'
@@ -441,8 +460,9 @@ class _AxesBase(martist.Artist):
           *aspect*           [ 'auto' | 'equal' | aspect_ratio ]
           *autoscale_on*     [ *True* | *False* ] whether or not to
                              autoscale the *viewlim*
-          *axisbelow*        draw the grids and ticks below the other
-                             artists
+          *axisbelow*        [ *True* | *False* | 'line'] draw the grids
+                             and ticks below or above most other artists,
+                             or below lines but above patches
           *cursor_props*     a (*float*, *color*) tuple
           *figure*           a :class:`~matplotlib.figure.Figure`
                              instance
@@ -773,7 +793,7 @@ class _AxesBase(martist.Artist):
         return (self.get_yaxis_transform(which='tick1') +
                 mtransforms.ScaledTranslation(-1 * pad_points / 72.0, 0,
                                               self.figure.dpi_scale_trans),
-                "center", "right")
+                "center_baseline", "right")
 
     def get_yaxis_text2_transform(self, pad_points):
         """
@@ -799,7 +819,7 @@ class _AxesBase(martist.Artist):
         return (self.get_yaxis_transform(which='tick2') +
                 mtransforms.ScaledTranslation(pad_points / 72.0, 0,
                                               self.figure.dpi_scale_trans),
-                "center", "left")
+                "center_baseline", "left")
 
     def _update_transScale(self):
         self.transScale.set(
@@ -2308,12 +2328,16 @@ class _AxesBase(martist.Artist):
                 artists.remove(spine)
 
         if self.axison and not inframe:
-            if self._axisbelow:
+            if self._axisbelow is True:
                 self.xaxis.set_zorder(0.5)
                 self.yaxis.set_zorder(0.5)
-            else:
+            elif self._axisbelow is False:
                 self.xaxis.set_zorder(2.5)
                 self.yaxis.set_zorder(2.5)
+            else:
+                # 'line': above patches, below lines
+                self.xaxis.set_zorder(1.5)
+                self.yaxis.set_zorder(1.5)
         else:
             for _axis in self._get_axis_list():
                 artists.remove(_axis)
@@ -2413,9 +2437,9 @@ class _AxesBase(martist.Artist):
         Set whether the axis ticks and gridlines are above or below most
         artists
 
-        ACCEPTS: [ *True* | *False* ]
+        ACCEPTS: [ *True* | *False* | 'line' ]
         """
-        self._axisbelow = b
+        self._axisbelow = validate_axisbelow(b)
         self.stale = True
 
     @docstring.dedent_interpd
@@ -2465,30 +2489,32 @@ class _AxesBase(martist.Artist):
 
         Optional keyword arguments:
 
-          ============   =========================================
-          Keyword        Description
-          ============   =========================================
-          *style*        [ 'sci' (or 'scientific') | 'plain' ]
-                         plain turns off scientific notation
-          *scilimits*    (m, n), pair of integers; if *style*
-                         is 'sci', scientific notation will
-                         be used for numbers outside the range
-                         10`m`:sup: to 10`n`:sup:.
-                         Use (0,0) to include all numbers.
-          *useOffset*    [True | False | offset]; if True,
-                         the offset will be calculated as needed;
-                         if False, no offset will be used; if a
-                         numeric offset is specified, it will be
-                         used.
-          *axis*         [ 'x' | 'y' | 'both' ]
-          *useLocale*    If True, format the number according to
-                         the current locale.  This affects things
-                         such as the character used for the
-                         decimal separator.  If False, use
-                         C-style (English) formatting.  The
-                         default setting is controlled by the
-                         axes.formatter.use_locale rcparam.
-          ============   =========================================
+          ==============   =========================================
+          Keyword          Description
+          ==============   =========================================
+          *style*          [ 'sci' (or 'scientific') | 'plain' ]
+                           plain turns off scientific notation
+          *scilimits*      (m, n), pair of integers; if *style*
+                           is 'sci', scientific notation will
+                           be used for numbers outside the range
+                           10`m`:sup: to 10`n`:sup:.
+                           Use (0,0) to include all numbers.
+          *useOffset*      [True | False | offset]; if True,
+                           the offset will be calculated as needed;
+                           if False, no offset will be used; if a
+                           numeric offset is specified, it will be
+                           used.
+          *axis*           [ 'x' | 'y' | 'both' ]
+          *useLocale*      If True, format the number according to
+                           the current locale.  This affects things
+                           such as the character used for the
+                           decimal separator.  If False, use
+                           C-style (English) formatting.  The
+                           default setting is controlled by the
+                           axes.formatter.use_locale rcparam.
+          *useMathText*    If True, render the offset and scientific
+                           notation in mathtext
+          ==============   =========================================
 
         Only the major ticks are affected.
         If the method is called when the
@@ -2501,6 +2527,7 @@ class _AxesBase(martist.Artist):
         scilimits = kwargs.pop('scilimits', None)
         useOffset = kwargs.pop('useOffset', None)
         useLocale = kwargs.pop('useLocale', None)
+        useMathText = kwargs.pop('useMathText', None)
         axis = kwargs.pop('axis', 'both').lower()
         if scilimits is not None:
             try:
@@ -2542,6 +2569,11 @@ class _AxesBase(martist.Artist):
                     self.xaxis.major.formatter.set_useLocale(useLocale)
                 if axis == 'both' or axis == 'y':
                     self.yaxis.major.formatter.set_useLocale(useLocale)
+            if useMathText is not None:
+                if axis == 'both' or axis == 'x':
+                    self.xaxis.major.formatter.set_useMathText(useMathText)
+                if axis == 'both' or axis == 'y':
+                    self.yaxis.major.formatter.set_useMathText(useMathText)
         except AttributeError:
             raise AttributeError(
                 "This method only works with the ScalarFormatter.")
@@ -3780,7 +3812,8 @@ class _AxesBase(martist.Artist):
         create a twin of Axes for generating a plot with a sharex
         x-axis but independent y axis.  The y-axis of self will have
         ticks on left and the returned axes will have ticks on the
-        right.
+        right. To ensure tick marks of both axis align, see
+        :class:`~matplotlib.ticker.LinearLocator`
 
         .. note::
             For those who are 'picking' artists while using twinx, pick
