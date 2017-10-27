@@ -733,7 +733,8 @@ class Legend(Artist):
                 bboxes.append(handle.get_bbox().transformed(transform))
             else:
                 transform = handle.get_transform()
-                bboxes.append(handle.get_path().get_extents(transform))
+                tpath = transform.transform_path(handle.get_path())
+                lines.append(tpath)
 
         for handle in ax.collections:
             transform, transOffset, hoffsets, paths = handle._prepare_points()
